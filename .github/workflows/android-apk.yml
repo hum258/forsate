@@ -24,7 +24,7 @@ jobs:
       - name: Enable Android release optimizations
         run: |
           printf '\nandroid.enableProguardInReleaseBuilds=true\nandroid.enableShrinkResourcesInReleaseBuilds=true\nandroid.enablePngCrunchInReleaseBuilds=true\n' >> android/gradle.properties
-          sed -i '/buildTypes {/,/^[[:space:]]*}/ s/release {/release {\n            signingConfig signingConfigs.debug/' android/app/build.gradle
+          sed -i '/release {/a\            signingConfig signingConfigs.debug' android/app/build.gradle
       - name: Build optimized release APK
         working-directory: android
         run: ./gradlew assembleRelease
