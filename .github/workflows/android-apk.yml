@@ -23,7 +23,7 @@ jobs:
         run: npx expo prebuild --platform android --no-install
       - name: Enable Android release optimizations
         run: |
-          printf '\nandroid.enableProguardInReleaseBuilds=true\nandroid.enableShrinkResourcesInReleaseBuilds=true\nandroid.enablePngCrunchInReleaseBuilds=true\n' >> android/gradle.properties
+          printf '\nandroid.enableProguardInReleaseBuilds=true\nandroid.enablePngCrunchInReleaseBuilds=true\n' >> android/gradle.properties
           sed -i '/release {/a\            signingConfig signingConfigs.debug' android/app/build.gradle
       - name: Build optimized release APK
         working-directory: android
