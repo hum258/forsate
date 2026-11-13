@@ -123,6 +123,8 @@ function AuthScreen({mode,setMode,onSuccess}) {
     } finally { setBusy(false); }
   }
 
+  useEffect(()=>{ if (mode==='google') google(); },[mode]);
+
   return <SafeAreaView style={{flex:1,backgroundColor:BG}}>
     <StatusBar barStyle="dark-content" backgroundColor={BG}/>
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
