@@ -17,6 +17,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Check Expo package compatibility
+        run: npx expo install --check
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
       - name: Enable Android release optimizations
