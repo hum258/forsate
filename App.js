@@ -261,5 +261,5 @@ export default function App() {
     </View>
   </SafeAreaView>;
 
-  return <AuthScreen mode={authMode==='google'?'login':authMode} setMode={setAuthMode} onSuccess={setSession}/>;
+  return <AuthScreen mode={authMode} setMode={setAuthMode} onSuccess={setSession}/>
 }
