@@ -1,265 +1,49 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView,
-  ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View
-} from 'react-native';
+import React,{useEffect,useState} from 'react';
+import {ActivityIndicator,Alert,KeyboardAvoidingView,Linking,Platform,SafeAreaView,ScrollView,StatusBar,Text,TextInput,TouchableOpacity,View} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
-import { supabase } from './lib/supabase';
-
+import {supabase} from './lib/supabase';
+import {categories,courses,getCategory} from './data/courses';
 WebBrowser.maybeCompleteAuthSession();
-
-const BLUE = '#2563EB';
-const DARK = '#14264B';
-const MUTED = '#718096';
-const BG = '#F7F9FC';
-const categories = [
-  ['⌘','البرمجة','تعلم بناء التطبيقات والمواقع'],
-  ['◈','الأمن السيبراني','افهم الحماية والأمان الرقمي'],
-  ['✳','التصميم','ابدأ رحلتك في التصميم والإبداع'],
-  ['✦','الذكاء الاصطناعي','اكتشف أدوات وتقنيات الذكاء الاصطناعي'],
-  ['↗','التسويق الرقمي','تعلم التسويق وصناعة المحتوى'],
-  ['◇','ريادة الأعمال','حوّل أفكارك إلى مشاريع'],
-  ['文','اللغات','طوّر مهاراتك اللغوية'],
-  ['▦','المهارات الرقمية','مهارات العالم الرقمي'],
-  ['⌬','العلوم والهندسة','اكتشف العلوم والتقنيات'],
-  ['▣','المهارات المهنية','استعد للدراسة والعمل']
-];
-
-const inputStyle = {
-  backgroundColor:'#FFFFFF', borderWidth:1, borderColor:'#E2E8F0',
-  borderRadius:14, paddingHorizontal:15, paddingVertical:14,
-  color:DARK, fontSize:15, textAlign:'right', marginTop:8
-};
-
-function Brand({small=false}) {
-  return <View style={{alignItems:'center',marginBottom:small?18:28}}>
-    <View style={{width:66,height:66,borderRadius:22,backgroundColor:'#EAF1FF',alignItems:'center',justifyContent:'center',marginBottom:12}}>
-      <Text style={{fontSize:35,fontWeight:'900',color:BLUE}}>ف</Text>
-    </View>
-    <Text style={{fontSize:small?27:32,fontWeight:'900',color:DARK}}>فرصتي</Text>
-    <Text style={{fontSize:13,color:MUTED,marginTop:5}}>تعلّم اليوم، واصنع فرصتك غداً</Text>
-  </View>;
+const BLUE='#2856D8',DARK='#172746',MUTED='#71809A',BG='#F5F7FC',LINE='#E7ECF5',KEY='forsati-learning-progress-v1';
+function Mark({size=52}){return <View style={{width:size,height:size,borderRadius:size*.3,backgroundColor:'#E8EFFF',alignItems:'center',justifyContent:'center'}}><View style={{width:size*.7,height:size*.7,borderRadius:size*.23,backgroundColor:BLUE,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:size*.46,fontWeight:'900',color:'#FFF'}}>ف</Text></View></View>}
+function Brand(){return <View style={{alignItems:'center',marginBottom:24}}><Mark size={68}/><Text style={{fontSize:31,fontWeight:'900',color:DARK,marginTop:9}}>فرصتي</Text><Text style={{fontSize:12,color:MUTED,marginTop:4}}>تعلّم اليوم، واصنع فرصتك غداً</Text></View>}
+const field={backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:13,padding:14,color:DARK,fontSize:15,textAlign:'right',marginTop:7,marginBottom:13};
+function Btn({title,onPress,secondary=false}){return <TouchableOpacity onPress={onPress} style={{minHeight:49,borderRadius:14,backgroundColor:secondary?'#FFF':BLUE,borderWidth:secondary?1:0,borderColor:LINE,alignItems:'center',justifyContent:'center',marginTop:9,paddingHorizontal:12}}><Text style={{fontWeight:'900',fontSize:14,color:secondary?DARK:'#FFF'}}>{title}</Text></TouchableOpacity>}
+function Auth({onSuccess}){
+ const [mode,setMode]=useState('login'),[name,setName]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[confirm,setConfirm]=useState(''),[busy,setBusy]=useState(false);
+ async function submit(){const e=email.trim().toLowerCase();if(!e||!password)return Alert.alert('بيانات ناقصة','أدخل البريد وكلمة المرور.');if(mode==='signup'&&!name.trim())return Alert.alert('الاسم مطلوب','اكتب اسمك الكامل.');if(mode==='signup'&&password.length<8)return Alert.alert('كلمة المرور قصيرة','استخدم 8 أحرف على الأقل.');if(mode==='signup'&&password!==confirm)return Alert.alert('تأكيد كلمة المرور','كلمتا المرور غير متطابقتين.');setBusy(true);try{if(mode==='signup'){const {data,error}=await supabase.auth.signUp({email:e,password,options:{data:{full_name:name.trim()}}});if(error)throw error;if(data.session)onSuccess(data.session);else Alert.alert('تحقق من بريدك','افتح رسالة التأكيد ثم سجّل الدخول.')}else{const {data,error}=await supabase.auth.signInWithPassword({email:e,password});if(error)throw error;onSuccess(data.session)}}catch(x){Alert.alert('تعذّر إكمال العملية',x.message||'حاول مرة أخرى.')}finally{setBusy(false)}}
+ async function google(){setBusy(true);try{const redirectTo='forsati://auth/callback';const {data,error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}});if(error)throw error;const result=await WebBrowser.openAuthSessionAsync(data.url,redirectTo);if(result.type==='success'&&result.url){const code=new URL(result.url).searchParams.get('code');if(code){const {data:s,error:e}=await supabase.auth.exchangeCodeForSession(code);if(e)throw e;onSuccess(s.session)}}}catch(x){Alert.alert('تسجيل Google غير مكتمل',x.message||'تحقق من إعداد Google في Supabase.')}finally{setBusy(false)}}
+ return <SafeAreaView style={{flex:1,backgroundColor:BG}}><StatusBar barStyle="dark-content"/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView contentContainerStyle={{flexGrow:1,justifyContent:'center',padding:24}} keyboardShouldPersistTaps="handled"><Brand/><View style={{backgroundColor:'#FFF',borderRadius:23,borderWidth:1,borderColor:LINE,padding:20}}><Text style={{fontSize:22,fontWeight:'900',color:DARK,textAlign:'right'}}>{mode==='login'?'أهلاً بعودتك':'أنشئ حسابك في فرصتي'}</Text><Text style={{fontSize:12,color:MUTED,textAlign:'right',marginVertical:10}}>{mode==='login'?'سجّل الدخول وواصل رحلة التعلم':'ابدأ رحلتك التعليمية مع فرصتي'}</Text>{mode==='signup'&&<><Text style={{textAlign:'right',color:DARK,fontWeight:'700'}}>الاسم الكامل</Text><TextInput value={name} onChangeText={setName} placeholder="اكتب اسمك" style={field}/></>}<Text style={{textAlign:'right',color:DARK,fontWeight:'700'}}>البريد الإلكتروني</Text><TextInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" style={field}/><Text style={{textAlign:'right',color:DARK,fontWeight:'700'}}>كلمة المرور</Text><TextInput value={password} onChangeText={setPassword} placeholder="8 أحرف على الأقل" secureTextEntry style={field}/>{mode==='signup'&&<><Text style={{textAlign:'right',color:DARK,fontWeight:'700'}}>تأكيد كلمة المرور</Text><TextInput value={confirm} onChangeText={setConfirm} secureTextEntry placeholder="أعد كتابة كلمة المرور" style={field}/></>}<Btn title={busy?'يرجى الانتظار':mode==='login'?'تسجيل الدخول':'إنشاء الحساب'} onPress={submit}/><Text style={{textAlign:'center',color:MUTED,marginTop:17}}>أو</Text><Btn title="المتابعة باستخدام Google  G" secondary onPress={google}/><TouchableOpacity onPress={()=>setMode(mode==='login'?'signup':'login')} style={{padding:18,alignItems:'center'}}><Text style={{color:MUTED}}>{mode==='login'?'ليس لديك حساب؟ ':'لديك حساب؟ '}<Text style={{color:BLUE,fontWeight:'900'}}>{mode==='login'?'إنشاء حساب':'تسجيل الدخول'}</Text></Text></TouchableOpacity></View>{busy&&<ActivityIndicator color={BLUE} style={{marginTop:12}}/>}</ScrollView></KeyboardAvoidingView></SafeAreaView>
 }
-
-function Field({label, value, onChangeText, placeholder, secure=false, keyboardType='default', autoCapitalize='sentences'}) {
-  return <View style={{marginBottom:14}}>
-    <Text style={{textAlign:'right',fontSize:13,fontWeight:'700',color:'#34445F'}}>{label}</Text>
-    <TextInput
-      value={value} onChangeText={onChangeText} placeholder={placeholder}
-      placeholderTextColor="#A0AEC0" secureTextEntry={secure}
-      keyboardType={keyboardType} autoCapitalize={autoCapitalize}
-      autoCorrect={false} style={inputStyle}
-    />
-  </View>;
+function AppHome({session,onSignOut}){
+ const [tab,setTab]=useState('الرئيسية'),[page,setPage]=useState('home'),[cat,setCat]=useState(null),[course,setCourse]=useState(null),[lesson,setLesson]=useState(0),[progress,setProgress]=useState({}),[ready,setReady]=useState(false),[query,setQuery]=useState('');
+ const user=session?.user,display=user?.user_metadata?.full_name||user?.email?.split('@')[0]||'متعلّم';
+ useEffect(()=>{AsyncStorage.getItem(KEY).then(v=>{if(v)setProgress(JSON.parse(v))}).catch(()=>{}).finally(()=>setReady(true))},[]);
+ useEffect(()=>{if(ready)AsyncStorage.setItem(KEY,JSON.stringify(progress)).catch(()=>{})},[progress,ready]);
+ const done=c=>progress[c.id]?.completed?.length||0;
+ const ratio=c=>done(c)/c.lessonList.length;
+ const enrolled=courses.filter(c=>progress[c.id]?.enrolled);
+ function goCat(c){setCat(c);setQuery('');setPage('category')}
+ function goCourse(c){setCourse(c);setPage('course')}
+ function mark(i){setProgress(p=>({...p,[course.id]:{enrolled:true,completed:Array.from(new Set([...(p[course.id]?.completed||[]),i]))}}))}
+ function back(){setPage(page==='lesson'?'course':page==='course'?(cat?'category':'home'):'home')}
+ const header=(t)=> <View style={{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:17}}><View style={{flexDirection:'row-reverse',alignItems:'center'}}><TouchableOpacity onPress={back} style={{backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:12,padding:9,marginLeft:10}}><Text style={{fontSize:18,color:DARK}}>›</Text></TouchableOpacity><Text style={{fontSize:18,fontWeight:'900',color:DARK}}>{t}</Text></View><Mark size={36}/></View>;
+ const heading=(t,s)=><View style={{alignItems:'flex-end',marginBottom:14}}><Text style={{fontSize:21,fontWeight:'900',color:DARK}}>{t}</Text><Text style={{fontSize:12,color:MUTED,marginTop:5,textAlign:'right'}}>{s}</Text></View>;
+ const cover=(c,large=false)=> <View style={{height:large?120:78,width:large?'100%':82,borderRadius:17,backgroundColor:'#EAF0FF',alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:large?40:29,color:BLUE,fontWeight:'900'}}>{getCategory(c.categoryId)?.icon}</Text><Text style={{fontSize:9,color:DARK,marginTop:3}}>{getCategory(c.categoryId)?.name}</Text></View>;
+ const card=c=><TouchableOpacity key={c.id} onPress={()=>goCourse(c)} style={{backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:17,padding:12,marginBottom:10}}><View style={{flexDirection:'row-reverse',alignItems:'center'}}>{cover(c)}<View style={{flex:1,marginRight:11,alignItems:'flex-end'}}><Text style={{fontSize:14,fontWeight:'900',color:DARK,textAlign:'right'}}>{c.title}</Text><Text style={{fontSize:11,color:MUTED,marginTop:6}}>{c.level} • {c.lessons} دروس</Text><Text style={{fontSize:10,color:BLUE,marginTop:4}}>{c.provider}</Text></View></View><Text style={{fontSize:11,color:MUTED,textAlign:'right',lineHeight:18,marginTop:8}}>{c.description}</Text>{done(c)>0&&<View style={{height:5,backgroundColor:'#EDF1F8',borderRadius:5,marginTop:8,overflow:'hidden'}}><View style={{height:5,width:(ratio(c)*100)+'%',backgroundColor:BLUE}}/></View>}</TouchableOpacity>;
+ const categoryPage=()=>{const c=getCategory(cat);return <>{header(c.name)}<View style={{backgroundColor:'#FFF',borderRadius:18,borderWidth:1,borderColor:LINE,padding:17,marginBottom:16}}><Text style={{fontSize:30,color:BLUE,textAlign:'right'}}>{c.icon}</Text><Text style={{fontSize:19,fontWeight:'900',color:DARK,textAlign:'right',marginTop:7}}>{c.name}</Text><Text style={{fontSize:13,color:MUTED,textAlign:'right',lineHeight:22,marginTop:6}}>{c.description}</Text></View>{heading('الدورات المتاحة','اختر دورة لعرض تفاصيلها')}{courses.filter(x=>x.categoryId===cat).map(card)}</>};
+ const coursePage=()=> <>{header('تفاصيل الدورة')}{cover(course,true)}<Text style={{fontSize:21,fontWeight:'900',color:DARK,textAlign:'right',marginTop:15}}>{course.title}</Text><Text style={{fontSize:12,color:BLUE,textAlign:'right',marginTop:7}}>{course.level} • {course.lessonList.length} دروس • {course.duration}</Text><Text style={{fontSize:13,color:MUTED,textAlign:'right',lineHeight:23,marginTop:10}}>{course.description}</Text><View style={{backgroundColor:'#FFF',borderRadius:16,borderWidth:1,borderColor:LINE,padding:15,marginTop:15}}><Text style={{fontWeight:'900',color:DARK,textAlign:'right'}}>ماذا ستتعلم؟</Text>{course.outcomes.map((o,i)=><Text key={i} style={{fontSize:12,color:MUTED,textAlign:'right',marginTop:9}}>✓  {o}</Text>)}</View>{heading('محتويات الدورة',done(course)+' من '+course.lessonList.length+' دروس مكتملة')}{course.lessonList.map((l,i)=><TouchableOpacity key={i} onPress={()=>{setProgress(p=>({...p,[course.id]:{enrolled:true,completed:p[course.id]?.completed||[]}}));setLesson(i);setPage('lesson')}} style={{backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:13,padding:14,marginBottom:8,flexDirection:'row-reverse',alignItems:'center'}}><Text style={{color:BLUE,fontWeight:'900',fontSize:15}}>{progress[course.id]?.completed?.includes(i)?'✓':i+1}</Text><Text style={{flex:1,textAlign:'right,color:DARK,fontWeight:'800',marginRight:12}}>{l[0]}</Text><Text style={{color:MUTED}}>‹</Text></TouchableOpacity>)}<View style={{backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:14,padding:13,marginTop:8}}><Text style={{fontWeight:'900',color:DARK,textAlign:'right'}}>المصدر التعليمي</Text><Text style={{fontSize:11,color:MUTED,textAlign:'right',lineHeight:19,marginTop:6}}>{course.provider}. الملخصات داخل فرصتي مكتوبة للتعلم، والمصدر الأصلي يحتفظ بمحتواه وحقوقه.</Text><Btn title="فتح المصدر الأصلي" secondary onPress={()=>Linking.openURL(course.sourceUrl)}/></View>{done(course)===course.lessonList.length&&<Text style={{color:'#16845E',textAlign:'center',fontWeight:'900',marginTop:12}}>أكملت جميع دروس الدورة!</Text>}<Btn title="ابدأ التعلم" onPress={()=>{setLesson(course.lessonList.findIndex((_,i)=>!progress[course.id]?.completed?.includes(i))<0?0:course.lessonList.findIndex((_,i)=>!progress[course.id]?.completed?.includes(i)));setProgress(p=>({...p,[course.id]:{enrolled:true,completed:p[course.id]?.completed||[]}}));setPage('lesson')}}/></>;
+ const lessonPage=()=>{const l=course.lessonList[lesson],isDone=progress[course.id]?.completed?.includes(lesson);return <>{header('الدرس '+(lesson+1))}<View style={{backgroundColor:'#FFF',borderRadius:19,borderWidth:1,borderColor:LINE,padding:18}}><Text style={{fontSize:11,color:BLUE,textAlign:'right'}}>{course.title}</Text><Text style={{fontSize:22,fontWeight:'900',color:DARK,textAlign:'right',lineHeight:32,marginTop:12}}>{l[0]}</Text><View style={{height:1,backgroundColor:LINE,marginVertical:16}}/><Text style={{fontSize:15,color:'#3C4B65',textAlign:'right',lineHeight:29}}>{l[1]}</Text><View style={{backgroundColor:'#F0F4FF',borderRadius:12,padding:12,marginTop:20}}><Text style={{fontSize:12,color:BLUE,textAlign:'right',fontWeight:'900'}}>تذكّر</Text><Text style={{fontSize:12,color:MUTED,textAlign:'right',lineHeight:20,marginTop:5}}>اكتب مثالاً من حياتك اليومية لتثبيت المعلومة.</Text></View></View><Btn title={isDone?'تم إكمال الدرس ✓':'تحديد الدرس كمكتمل'} onPress={()=>mark(lesson)}/>{lesson<course.lessonList.length-1?<Btn title="الدرس التالي ←" secondary onPress={()=>{mark(lesson);setLesson(lesson+1)}}/>:<Btn title="العودة إلى تفاصيل الدورة" secondary onPress={()=>{mark(lesson);setPage('course')}}}/></>};
+ if(!ready)return <SafeAreaView style={{flex:1,backgroundColor:BG,alignItems:'center',justifyContent:'center'}}><ActivityIndicator color={BLUE}/></SafeAreaView>;
+ let body;
+ if(page==='category')body=categoryPage();
+ else if(page==='course')body=coursePage();
+ else if(page==='lesson')body=lessonPage();
+ else if(tab==='حسابي')body=<>{heading('حسابي','إدارة حسابك في فرصتي')}<View style={{backgroundColor:'#FFF',borderRadius:18,borderWidth:1,borderColor:LINE,padding:20,alignItems:'center'}}><Mark size={64}/><Text style={{fontSize:18,fontWeight:'900',color:DARK,marginTop:12}}>{display}</Text><Text style={{color:MUTED,marginTop:5}}>{user.email}</Text><Text style={{color:MUTED,marginTop:18}}>الدورات التي بدأت بها: {enrolled.length}</Text><Btn title="تسجيل الخروج" secondary onPress={onSignOut}/></View></>;
+ else if(tab==='دوراتي')body=<>{heading('دوراتي','الدورات التي بدأت بها')}{enrolled.length?enrolled.map(card):<View style={{backgroundColor:'#FFF',padding:24,borderRadius:18,alignItems:'center'}}><Text style={{fontWeight:'900',color:DARK}}>لم تبدأ أي دورة بعد</Text><Text style={{fontSize:12,color:MUTED,marginTop:7}}>اختر دورة من الأقسام لتبدأ التعلم.</Text></View>}</>;
+ else if(tab==='التصنيفات')body=<>{heading('الأقسام التعليمية','اختر مجالاً لعرض الدورات') }<TextInput value={query} onChangeText={setQuery} placeholder="ابحث عن قسم..." style={field}/>{categories.filter(c=>c.name.includes(query)).map(c=><TouchableOpacity key={c.id} onPress={()=>goCat(c.id)} style={{backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:15,padding:14,marginBottom:9,flexDirection:'row-reverse',alignItems:'center'}}><Text style={{fontSize:25,color:BLUE}}>{c.icon}</Text><View style={{flex:1,marginRight:12,alignItems:'flex-end'}}><Text style={{fontWeight:'900',color:DARK}}>{c.name}</Text><Text style={{fontSize:11,color:MUTED,marginTop:4,textAlign:'right'}}>{c.description}</Text></View></TouchableOpacity>)}</>;
+ else body=<><View style={{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:17}}><View style={{alignItems:'flex-end'}}><Text style={{fontSize:24,fontWeight:'900',color:DARK}}>مرحباً {display}</Text><Text style={{fontSize:12,color:MUTED,marginTop:4}}>أهلاً بك في فرصتي</Text></View><Mark size={46}/></View><View style={{backgroundColor:'#1C3E9D',borderRadius:22,padding:20,marginBottom:22}}><Text style={{color:'#DCE7FF',fontSize:12,textAlign:'right'}}>منصة فرصتي التعليمية</Text><Text style={{fontSize:23,fontWeight:'900',color:'#FFF',textAlign:'right',lineHeight:34,marginTop:8}}>كل مهارة جديدة،{ '\n' }تفتح لك فرصة جديدة</Text><Text style={{fontSize:12,color:'#DCE7FF',textAlign:'right',marginTop:8}}>ابدأ من الصفر وتعلّم باللغة العربية.</Text><TouchableOpacity onPress={()=>setTab('التصنيفات')} style={{backgroundColor:'#FFF',alignSelf:'flex-end',padding:11,borderRadius:11,marginTop:14}}><Text style={{fontWeight:'900',color:BLUE}}>استكشف الأقسام ←</Text></TouchableOpacity></View>{heading('الأقسام التعليمية','اختر المجال الذي يناسبك')}<View style={{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between'}}>{categories.map(c=><TouchableOpacity key={c.id} onPress={()=>goCat(c.id)} style={{width:'48%',backgroundColor:'#FFF',borderWidth:1,borderColor:LINE,borderRadius:16,padding:13,marginBottom:10,minHeight:106,alignItems:'flex-end'}}><Text style={{fontSize:23,color:BLUE}}>{c.icon}</Text><Text style={{fontSize:13,fontWeight:'900',color:DARK,marginTop:6}}>{c.name}</Text><Text style={{fontSize:10,color:MUTED,textAlign:'right',marginTop:4}}>{c.description}</Text></TouchableOpacity>)}</View>{heading('دورات مقترحة','ابدأ بهذه الدورات التمهيدية')}{courses.slice(0,4).map(card)}</>;
+ return <SafeAreaView style={{flex:1,backgroundColor:BG}}><StatusBar barStyle="dark-content"/><ScrollView contentContainerStyle={{padding:18,paddingBottom:105}}>{body}</ScrollView>{page==='home'&&<View style={{position:'absolute',bottom:0,left:0,right:0,backgroundColor:'#FFF',borderTopWidth:1,borderTopColor:LINE,paddingTop:9,paddingBottom:Platform.OS==='android'?10:17,flexDirection:'row-reverse',justifyContent:'space-around'}}>{['الرئيسية','التصنيفات','دوراتي','حسابي'].map((n,i)=><TouchableOpacity key={n} onPress={()=>{setTab(n);setCat(null);setQuery('')}} style={{alignItems:'center',minWidth:65}}><Text style={{fontSize:21,color:tab===n?BLUE:'#9AA6B8'}}>{['⌂','▦','▤','◉'][i]}</Text><Text style={{fontSize:10,color:tab===n?BLUE:MUTED,fontWeight:tab===n?'900':'500',marginTop:3}}>{n}</Text></TouchableOpacity>)}</View>}</SafeAreaView>
 }
-
-function ActionButton({title,onPress,secondary=false,disabled=false}) {
-  return <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={disabled}
-    style={{height:53,borderRadius:15,alignItems:'center',justifyContent:'center',
-      backgroundColor:secondary?'#FFFFFF':BLUE,borderWidth:secondary?1:0,borderColor:'#D9E2F1',
-      opacity:disabled?0.65:1,marginTop:10}}>
-    <Text style={{fontSize:15,fontWeight:'800',color:secondary?DARK:'#FFFFFF'}}>{title}</Text>
-  </TouchableOpacity>;
-}
-
-function AuthScreen({mode,setMode,onSuccess}) {
-  const [name,setName]=useState('');
-  const [email,setEmail]=useState('');
-  const [password,setPassword]=useState('');
-  const [confirm,setConfirm]=useState('');
-  const [busy,setBusy]=useState(false);
-
-  async function submit() {
-    const cleanEmail=email.trim().toLowerCase();
-    if (!cleanEmail || !password) return Alert.alert('بيانات ناقصة','أدخل البريد الإلكتروني وكلمة المرور.');
-    if (mode==='signup' && !name.trim()) return Alert.alert('الاسم مطلوب','اكتب اسمك للمتابعة.');
-    if (mode==='signup' && password.length<8) return Alert.alert('كلمة المرور قصيرة','استخدم 8 أحرف على الأقل.');
-    if (mode==='signup' && password!==confirm) return Alert.alert('تأكيد كلمة المرور','كلمتا المرور غير متطابقتين.');
-    setBusy(true);
-    try {
-      if (mode==='signup') {
-        const {data,error}=await supabase.auth.signUp({
-          email:cleanEmail,password,
-          options:{data:{full_name:name.trim(),display_name:name.trim()}}
-        });
-        if (error) throw error;
-        if (data.session) onSuccess(data.session);
-        else Alert.alert('تحقق من بريدك الإلكتروني','أرسلنا رسالة تأكيد إلى بريدك. افتحها ثم ارجع وسجّل الدخول.');
-      } else {
-        const {data,error}=await supabase.auth.signInWithPassword({email:cleanEmail,password});
-        if (error) throw error;
-        onSuccess(data.session);
-      }
-    } catch(e) {
-      Alert.alert('تعذّر إكمال العملية',e.message || 'حدث خطأ. حاول مرة أخرى.');
-    } finally { setBusy(false); }
-  }
-
-  async function google() {
-    setBusy(true);
-    try {
-      const redirectTo='forsati://auth/callback';
-      const {data,error}=await supabase.auth.signInWithOAuth({
-        provider:'google',
-        options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error('لم يتم إنشاء رابط تسجيل الدخول.');
-      const result=await WebBrowser.openAuthSessionAsync(data.url,redirectTo);
-      if (result.type==='success' && result.url) {
-        const callback=new URL(result.url);
-        const code=callback.searchParams.get('code');
-        if (code) {
-          const {data:sessionData,error:exchangeError}=await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) throw exchangeError;
-          onSuccess(sessionData.session);
-        } else {
-          const message=callback.searchParams.get('error_description');
-          if (message) throw new Error(message);
-        }
-      }
-    } catch(e) {
-      Alert.alert('تسجيل Google غير مكتمل',e.message || 'تحقق من إعداد Google في لوحة Supabase.');
-    } finally { setBusy(false); }
-  }
-
-  useEffect(()=>{ if (mode==='google') google(); },[mode]);
-
-  return <SafeAreaView style={{flex:1,backgroundColor:BG}}>
-    <StatusBar barStyle="dark-content" backgroundColor={BG}/>
-    <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
-      <ScrollView contentContainerStyle={{flexGrow:1,justifyContent:'center',paddingHorizontal:25,paddingVertical:30}} keyboardShouldPersistTaps="handled">
-        <Brand/>
-        <View style={{backgroundColor:'#FFFFFF',borderRadius:24,padding:21,borderWidth:1,borderColor:'#EDF1F7'}}>
-          <Text style={{fontSize:22,fontWeight:'900',color:DARK,textAlign:'right'}}>{mode==='signup'?'أنشئ حسابك':'أهلاً بعودتك'}</Text>
-          <Text style={{fontSize:13,color:MUTED,textAlign:'right',marginTop:7,marginBottom:22}}>
-            {mode==='signup'?'ابدأ رحلتك التعليمية مع فرصتي':'سجّل الدخول وتابع رحلتك التعليمية'}
-          </Text>
-          {mode==='signup' && <Field label="الاسم الكامل" value={name} onChangeText={setName} placeholder="اكتب اسمك"/>}
-          <Field label="البريد الإلكتروني" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none"/>
-          <Field label="كلمة المرور" value={password} onChangeText={setPassword} placeholder="8 أحرف على الأقل" secure autoCapitalize="none"/>
-          {mode==='signup' && <Field label="تأكيد كلمة المرور" value={confirm} onChangeText={setConfirm} placeholder="أعد كتابة كلمة المرور" secure autoCapitalize="none"/>}
-          <ActionButton title={busy?'يرجى الانتظار...':mode==='signup'?'إنشاء الحساب':'تسجيل الدخول'} onPress={submit} disabled={busy}/>
-          <View style={{flexDirection:'row',alignItems:'center',marginVertical:18}}>
-            <View style={{height:1,backgroundColor:'#E8EDF5',flex:1}}/><Text style={{marginHorizontal:12,color:'#94A3B8',fontSize:12}}>أو</Text><View style={{height:1,backgroundColor:'#E8EDF5',flex:1}}/>
-          </View>
-          <ActionButton title="متابعة باستخدام Google" onPress={google} secondary disabled={busy}/>
-          <TouchableOpacity onPress={()=>setMode(mode==='signup'?'login':'signup')} style={{paddingTop:22,alignItems:'center'}}>
-            <Text style={{fontSize:13,color:MUTED}}>{mode==='signup'?'لديك حساب بالفعل؟ ':'ليس لديك حساب؟ '}
-              <Text style={{color:BLUE,fontWeight:'900'}}>{mode==='signup'?'تسجيل الدخول':'إنشاء حساب'}</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-        {busy && <ActivityIndicator color={BLUE} style={{marginTop:16}}/>}
-        <Text style={{textAlign:'center',fontSize:11,color:'#A0AEC0',marginTop:22}}>منصة فرصتي التعليمية • مجانية للجميع</Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  </SafeAreaView>;
-}
-
-function HomeScreen({session,onSignOut}) {
-  const [tab,setTab]=useState('الرئيسية');
-  const [query,setQuery]=useState('');
-  const [selected,setSelected]=useState(null);
-  const user=session?.user;
-  const displayName=user?.user_metadata?.full_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'متعلّم';
-  const visible=useMemo(()=>categories.filter(c=>(c[1]+' '+c[2]).includes(query.trim())),[query]);
-
-  function heading(title,subtitle) {
-    return <View style={{alignItems:'flex-end',marginBottom:18}}>
-      <Text style={{fontSize:25,fontWeight:'900',color:DARK,textAlign:'right'}}>{title}</Text>
-      <Text style={{fontSize:13,color:MUTED,textAlign:'right',marginTop:6}}>{subtitle}</Text>
-    </View>;
-  }
-
-  return <SafeAreaView style={{flex:1,backgroundColor:BG}}>
-    <StatusBar barStyle="dark-content" backgroundColor={BG}/>
-    <ScrollView contentContainerStyle={{padding:20,paddingBottom:110}} keyboardShouldPersistTaps="handled">
-      <View style={{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
-        <View style={{alignItems:'flex-end'}}>
-          <Text style={{fontSize:27,fontWeight:'900',color:DARK}}>فرصتي</Text>
-          <Text style={{fontSize:12,color:MUTED,marginTop:3}}>مساحتك لاكتساب مهارات جديدة</Text>
-        </View>
-        <View style={{width:46,height:46,borderRadius:15,backgroundColor:'#E7EFFF',alignItems:'center',justifyContent:'center'}}>
-          <Text style={{fontSize:25,color:BLUE,fontWeight:'900'}}>ف</Text>
-        </View>
-      </View>
-
-      {tab==='الرئيسية' && <>
-        <View style={{backgroundColor:'#1D4ED8',borderRadius:23,padding:22,marginBottom:25}}>
-          <Text style={{color:'#DBEAFE',fontSize:13,textAlign:'right'}}>أهلاً {displayName} 👋</Text>
-          <Text style={{color:'#FFFFFF',fontSize:24,fontWeight:'900',textAlign:'right',marginTop:10,lineHeight:36}}>كل مهارة جديدة،{ '\n' }تفتح لك فرصة جديدة</Text>
-          <Text style={{color:'#DBEAFE',fontSize:13,textAlign:'right',marginTop:10}}>تعلّم باللغة العربية، وابدأ من المجال الذي تحبه.</Text>
-          <TouchableOpacity onPress={()=>setTab('التصنيفات')} style={{backgroundColor:'#FFFFFF',paddingVertical:12,paddingHorizontal:17,borderRadius:12,alignSelf:'flex-end',marginTop:18}}>
-            <Text style={{color:'#1D4ED8',fontWeight:'900'}}>استكشف المجالات ←</Text>
-          </TouchableOpacity>
-        </View>
-        {heading('تعلّم حسب اهتمامك','اختر المجال الذي تريد البدء به')}
-        <TextInput value={query} onChangeText={setQuery} placeholder="ابحث عن مجال..." placeholderTextColor="#94A3B8" style={[inputStyle,{marginTop:0,marginBottom:16}]}/>
-        <View style={{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between'}}>
-          {visible.map(c=><TouchableOpacity key={c[1]} onPress={()=>{setSelected(c);setTab('التصنيفات');}} style={{width:'48%',backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E8EDF5',borderRadius:18,padding:15,marginBottom:12,minHeight:125}}>
-            <Text style={{fontSize:26,color:BLUE,textAlign:'right'}}>{c[0]}</Text>
-            <Text style={{fontSize:15,fontWeight:'900',color:DARK,textAlign:'right',marginTop:9}}>{c[1]}</Text>
-            <Text style={{fontSize:11,color:MUTED,textAlign:'right',marginTop:5,lineHeight:17}}>{c[2]}</Text>
-          </TouchableOpacity>)}
-        </View>
-      </>}
-
-      {tab==='التصنيفات' && <>
-        {heading(selected?selected[1]:'جميع المجالات',selected?selected[2]:'اختر المجال الذي يناسب اهتماماتك')}
-        {selected && <TouchableOpacity onPress={()=>setSelected(null)} style={{alignSelf:'flex-end',marginBottom:12}}><Text style={{color:BLUE,fontWeight:'800'}}>عرض جميع المجالات</Text></TouchableOpacity>}
-        {categories.filter(c=>!selected||c[1]===selected[1]).map(c=><View key={c[1]} style={{backgroundColor:'#FFFFFF',borderRadius:16,padding:17,marginBottom:11,borderWidth:1,borderColor:'#E8EDF5',flexDirection:'row-reverse',alignItems:'center'}}>
-          <View style={{width:48,height:48,borderRadius:14,backgroundColor:'#EDF3FF',alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:25,color:BLUE}}>{c[0]}</Text></View>
-          <View style={{flex:1,marginRight:13,alignItems:'flex-end'}}><Text style={{fontSize:15,fontWeight:'900',color:DARK}}>{c[1]}</Text><Text style={{fontSize:12,color:MUTED,marginTop:5}}>{c[2]}</Text></View>
-        </View>)}
-      </>}
-
-      {tab==='دوراتي' && <View style={{paddingTop:35}}>{heading('دوراتي','ستظهر هنا المسارات والدروس التي تبدأ بها')}<View style={{backgroundColor:'#FFFFFF',padding:25,borderRadius:18,alignItems:'center',borderWidth:1,borderColor:'#E8EDF5'}}><Text style={{fontSize:35,color:BLUE}}>▤</Text><Text style={{fontSize:15,fontWeight:'800',color:DARK,marginTop:12}}>لم تبدأ أي دورة بعد</Text><Text style={{fontSize:12,color:MUTED,marginTop:7}}>اختر مجالاً من التصنيفات لتبدأ رحلتك</Text><ActionButton title="استكشف المجالات" onPress={()=>setTab('التصنيفات')}/></View></View>}
-
-      {tab==='حسابي' && <View style={{paddingTop:25}}>{heading('حسابي','إدارة حسابك في فرصتي')}<View style={{backgroundColor:'#FFFFFF',borderRadius:18,padding:20,borderWidth:1,borderColor:'#E8EDF5',alignItems:'flex-end'}}><View style={{width:58,height:58,borderRadius:20,backgroundColor:'#EAF1FF',alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:27,color:BLUE,fontWeight:'900'}}>{displayName.charAt(0)}</Text></View><Text style={{fontSize:18,fontWeight:'900',color:DARK,marginTop:13}}>{displayName}</Text><Text style={{fontSize:13,color:MUTED,marginTop:5}}>{user?.email}</Text><View style={{height:1,backgroundColor:'#EDF1F7',alignSelf:'stretch',marginVertical:18}}/><TouchableOpacity onPress={onSignOut} style={{paddingVertical:13,alignSelf:'stretch',alignItems:'center',borderRadius:12,backgroundColor:'#FFF1F1'}}><Text style={{color:'#C53030',fontWeight:'900'}}>تسجيل الخروج</Text></TouchableOpacity></View></View>}
-    </ScrollView>
-    <View style={{position:'absolute',bottom:0,left:0,right:0,backgroundColor:'#FFFFFF',borderTopWidth:1,borderTopColor:'#E8EDF5',paddingTop:10,paddingBottom:Platform.OS==='android'?12:18,flexDirection:'row-reverse',justifyContent:'space-around'}}>
-      {['الرئيسية','التصنيفات','دوراتي','حسابي'].map((n,i)=><TouchableOpacity key={n} onPress={()=>{setTab(n);if(n!=='التصنيفات')setSelected(null);}} style={{alignItems:'center',minWidth:65,paddingVertical:3}}>
-        <Text style={{fontSize:21,color:tab===n?BLUE:'#94A3B8'}}>{['⌂','▦','▤','◉'][i]}</Text>
-        <Text style={{fontSize:11,marginTop:4,fontWeight:tab===n?'900':'500',color:tab===n?BLUE:'#64748B'}}>{n}</Text>
-      </TouchableOpacity>)}
-    </View>
-  </SafeAreaView>;
-}
-
-export default function App() {
-  const [session,setSession]=useState(null);
-  const [ready,setReady]=useState(false);
-  const [authMode,setAuthMode]=useState('welcome');
-
-  useEffect(()=>{
-    let mounted=true;
-    supabase.auth.getSession().then(({data})=>{if(mounted){setSession(data.session);setReady(true);}});
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,nextSession)=>setSession(nextSession));
-    return ()=>{mounted=false;subscription.unsubscribe();};
-  },[]);
-
-  if(!ready) return <SafeAreaView style={{flex:1,backgroundColor:BG,alignItems:'center',justifyContent:'center'}}><StatusBar barStyle="dark-content" backgroundColor={BG}/><Brand small/><ActivityIndicator color={BLUE}/></SafeAreaView>;
-  if(session) return <HomeScreen session={session} onSignOut={async()=>{const {error}=await supabase.auth.signOut();if(error)Alert.alert('تعذّر تسجيل الخروج',error.message);}}/>;
-
-  if(authMode==='welcome') return <SafeAreaView style={{flex:1,backgroundColor:BG}}>
-    <StatusBar barStyle="dark-content" backgroundColor={BG}/>
-    <View style={{flex:1,justifyContent:'center',paddingHorizontal:26}}>
-      <Brand/>
-      <View style={{backgroundColor:'#FFFFFF',borderRadius:24,padding:23,borderWidth:1,borderColor:'#EDF1F7',marginTop:15}}>
-        <Text style={{fontSize:23,fontWeight:'900',color:DARK,textAlign:'center'}}>أهلاً بك في فرصتي</Text>
-        <Text style={{fontSize:14,color:MUTED,textAlign:'center',lineHeight:23,marginTop:10,marginBottom:20}}>منصة تعليمية عربية تساعدك على اكتساب المهارات وفتح آفاق جديدة.</Text>
-        <ActionButton title="إنشاء حساب جديد" onPress={()=>setAuthMode('signup')}/>
-        <ActionButton title="تسجيل الدخول" onPress={()=>setAuthMode('login')} secondary/>
-        <View style={{height:1,backgroundColor:'#EDF1F7',marginTop:23,marginBottom:17}}/>
-        <TouchableOpacity onPress={()=>setAuthMode('google')} style={{height:52,borderRadius:14,borderWidth:1,borderColor:'#D9E2F1',alignItems:'center',justifyContent:'center',flexDirection:'row'}}>
-          <Text style={{fontSize:14,color:DARK,fontWeight:'800'}}>متابعة باستخدام Google</Text>
-          <Text style={{fontSize:18,fontWeight:'900',color:'#4285F4',marginLeft:10}}>G</Text>
-        </TouchableOpacity>
-        <Text style={{fontSize:11,color:'#A0AEC0',textAlign:'center',marginTop:19}}>مجانية • باللغة العربية • متاحة للجميع</Text>
-      </View>
-    </View>
-  </SafeAreaView>;
-
-  return <AuthScreen mode={authMode} setMode={setAuthMode} onSuccess={setSession}/>
-}
+export default function App(){const [session,setSession]=useState(null),[ready,setReady]=useState(false);useEffect(()=>{let live=true;supabase.auth.getSession().then(({data})=>{if(live){setSession(data.session);setReady(true)}}).catch(()=>setReady(true));const {data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>setSession(s));return()=>{live=false;subscription.unsubscribe()}},[]);if(!ready)return <SafeAreaView style={{flex:1,backgroundColor:BG,alignItems:'center',justifyContent:'center'}}><Brand/><ActivityIndicator color={BLUE}/></SafeAreaView>;return session?<AppHome session={session} onSignOut={async()=>{const {error}=await supabase.auth.signOut();if(error)Alert.alert('تعذّر تسجيل الخروج',error.message)}}/>:<Auth onSuccess={setSession}/>}
